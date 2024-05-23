@@ -79,13 +79,20 @@ public class InMemoryItemDao implements ItemDao {
     public List<Item> searchItems(String text) {
         log.debug("Поиск вещей с текстом: {}", text);
         List<Item> searchResults = new ArrayList<>();
+        if (text.isBlank()) {
+            return searchResults;
+        }
         for (Item item : items.values()) {
+            log.debug("Проверка вещи: {}", item);
             if (item.getAvailable() && (item.getName().toLowerCase().contains(text.toLowerCase()) || item.getDescription().toLowerCase().contains(text.toLowerCase()))) {
                 searchResults.add(item);
             }
         }
+        log.debug("Результаты поиска: {}", searchResults);
         return searchResults;
     }
+
+
 
     @Override
     public void deleteItem(Long itemId) {
