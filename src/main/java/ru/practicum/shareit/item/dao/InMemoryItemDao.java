@@ -3,6 +3,7 @@ package ru.practicum.shareit.item.dao;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.dto.ItemUpdateDto;
 import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.request.model.ItemRequest;
@@ -33,18 +34,18 @@ public class InMemoryItemDao implements ItemDao {
     }
 
     @Override
-    public void updateItem(Long userId, ItemDto itemDto, Long itemId) {
-        log.debug("Обновление вещи с id={} от пользователя с id={}, данными: {}", itemId, userId, itemDto);
+    public void updateItem(Long userId, ItemUpdateDto itemUpdateDto, Long itemId) {
+        log.debug("Обновление вещи с id={} от пользователя с id={}, данными: {}", itemId, userId, itemUpdateDto);
         Item existingItem = items.get(itemId);
         if (existingItem != null && existingItem.getOwner().getId().equals(userId)) {
-            if (itemDto.getName() != null) {
-                existingItem.setName(itemDto.getName());
+            if (itemUpdateDto.getName() != null) {
+                existingItem.setName(itemUpdateDto.getName());
             }
-            if (itemDto.getDescription() != null) {
-                existingItem.setDescription(itemDto.getDescription());
+            if (itemUpdateDto.getDescription() != null) {
+                existingItem.setDescription(itemUpdateDto.getDescription());
             }
-            if (itemDto.getAvailable() != null) {
-                existingItem.setAvailable(itemDto.getAvailable());
+            if (itemUpdateDto.getAvailable() != null) {
+                existingItem.setAvailable(itemUpdateDto.getAvailable());
             }
             items.put(itemId, existingItem);
             log.debug("Вещь с id={} успешно обновлена", itemId);

@@ -3,6 +3,7 @@ package ru.practicum.shareit.user.dao;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.dto.UserUpdateDto;
 import ru.practicum.shareit.user.mapper.UserMapper;
 import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.exception.ConflictException;
@@ -43,25 +44,25 @@ public class InMemoryUserDao implements UserDao {
     }
 
     @Override
-    public User updateUser(Long userId, UserDto userDto) {
-        log.debug("Обновление пользователя с id={}, данными: {}", userId, userDto);
+    public User updateUser(Long userId, UserUpdateDto userUpdateDto) {
+        log.debug("Обновление пользователя с id={}, данными: {}", userId, userUpdateDto);
         try {
             User existingUser = users.get(userId);
             if (existingUser == null) {
                 log.error("Пользователь с id={} не найден!", userId);
                 throw new NotFoundException("Пользователь с id=" + userId + " не найден!");
             }
-            if (userDto.getEmail() != null && !userDto.getEmail().isBlank()) {
+            if (userUpdateDto.getEmail() != null && !userUpdateDto.getEmail().isBlank()) {
                 for (User user : users.values()) {
-                    if (!user.getId().equals(userId) && user.getEmail().equals(userDto.getEmail())) {
-                        log.error("Конфликт: пользователь с такой почтой уже существует: {}", userDto.getEmail());
+                    if (!user.getId().equals(userId) && user.getEmail().equals(userUpdateDto.getEmail())) {
+                        log.error("Конфликт: пользователь с такой почтой уже существует: {}", userUpdateDto.getEmail());
                         throw new ConflictException("Пользователь с такой электронной почтой уже существует!");
                     }
                 }
-                existingUser.setEmail(userDto.getEmail());
+                existingUser.setEmail(userUpdateDto.getEmail());
             }
-            if (userDto.getName() != null && !userDto.getName().isBlank()) {
-                existingUser.setName(userDto.getName());
+            if (userUpdateDto.getName() != null && !userUpdateDto.getName().isBlank()) {
+                existingUser.setName(userUpdateDto.getName());
             }
 
             users.put(userId, existingUser);

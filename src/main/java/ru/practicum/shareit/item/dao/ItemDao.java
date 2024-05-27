@@ -1,6 +1,7 @@
 package ru.practicum.shareit.item.dao;
 
 import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.dto.ItemUpdateDto;
 import ru.practicum.shareit.item.model.Item;
 
 import java.util.List;
@@ -8,7 +9,7 @@ import java.util.List;
 public interface ItemDao {
     Item addItem(Long userId, ItemDto itemDto);
 
-    void updateItem(Long userId, ItemDto itemDto, Long itemId);
+    void updateItem(Long userId, ItemUpdateDto itemUpdateDto, Long itemId);
 
     Item getItem(Long itemId);
 

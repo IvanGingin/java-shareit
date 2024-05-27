@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.item.dao.ItemDao;
 import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.dto.ItemUpdateDto;
 import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.dao.UserDao;
@@ -47,8 +48,8 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public ItemDto updateItem(Long itemId, Long userId, @Valid ItemDto itemDto) {
-        log.debug("Обновление вещи с id={} пользователем с id={}, данными: {}", itemId, userId, itemDto);
+    public ItemDto updateItem(Long itemId, Long userId, @Valid ItemUpdateDto itemUpdateDto) {
+        log.debug("Обновление вещи с id={} пользователем с id={}, данными: {}", itemId, userId, itemUpdateDto);
         try {
             Item existingItem = inMemoryItemDao.getItem(itemId);
             if (existingItem == null) {
@@ -60,16 +61,16 @@ public class ItemServiceImpl implements ItemService {
                 throw new ForbiddenException("Пользователь с id=" + userId + " не является владельцем вещи с id=" + itemId);
             }
 
-            if (itemDto.getName() != null) {
-                existingItem.setName(itemDto.getName());
+            if (itemUpdateDto.getName() != null) {
+                existingItem.setName(itemUpdateDto.getName());
             }
-            if (itemDto.getDescription() != null) {
-                existingItem.setDescription(itemDto.getDescription());
+            if (itemUpdateDto.getDescription() != null) {
+                existingItem.setDescription(itemUpdateDto.getDescription());
             }
-            if (itemDto.getAvailable() != null) {
-                existingItem.setAvailable(itemDto.getAvailable());
+            if (itemUpdateDto.getAvailable() != null) {
+                existingItem.setAvailable(itemUpdateDto.getAvailable());
             }
-            inMemoryItemDao.updateItem(userId, itemDto, itemId);
+            inMemoryItemDao.updateItem(userId, itemUpdateDto, itemId);
             log.debug("Вещь с id={} успешно обновлена: {}", itemId, existingItem);
             return ItemMapper.toItemDto(existingItem);
         } catch (NotFoundException | ForbiddenException e) {

@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.user.dao.UserDao;
 import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.dto.UserUpdateDto;
 import ru.practicum.shareit.user.mapper.UserMapper;
 import ru.practicum.shareit.user.model.User;
 
@@ -33,10 +34,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserDto updateUser(Long userId, UserDto userDto) {
-        log.debug("Обновление пользователя с id={}, данными: {}", userId, userDto);
+    public UserDto updateUser(Long userId, UserUpdateDto userUpdateDto) {
+        log.debug("Обновление пользователя с id={}, данными: {}", userId, userUpdateDto);
         try {
-            User updatedUser = inMemoryUserDao.updateUser(userId, userDto);
+            User updatedUser = inMemoryUserDao.updateUser(userId, userUpdateDto);
             log.debug("Пользователь с id={} успешно обновлён: {}", userId, updatedUser);
             return UserMapper.toUserDto(updatedUser);
         } catch (Exception e) {
