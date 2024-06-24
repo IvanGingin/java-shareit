@@ -25,7 +25,7 @@ public class BookingController {
     }
 
     @PatchMapping("/{bookingId}")
-    public BookingDto updateBooking(@PathVariable Long bookingId, @RequestHeader(Constants.CONST_SHARED_USER_ID) Long userId, @RequestParam boolean approved) {
+    public BookingDto updateBooking(@PathVariable Long bookingId, @RequestHeader(Constants.CONST_SHARED_USER_ID) Long userId, @Valid @RequestParam boolean approved) {
         log.debug("Получен запрос на обновление статуса бронирования с id={} от пользователя с id={}, одобрено: {}", bookingId, userId, approved);
         return bookingService.updateBookingStatus(bookingId, userId, approved);
     }
@@ -37,14 +37,15 @@ public class BookingController {
     }
 
     @GetMapping
-    public List<BookingDto> getUserBookings(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long userId, @RequestParam String state) {
+    public List<BookingDto> getUserBookings(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long userId, @RequestParam(defaultValue = "ALL") String state) {
         log.debug("Получен запрос на получение всех бронирований пользователя с id={} со статусом {}", userId, state);
         return bookingService.getUserBookings(userId, state);
     }
 
     @GetMapping("/owner")
-    public List<BookingDto> getOwnerBookings(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long ownerId, @RequestParam String state) {
+    public List<BookingDto> getOwnerBookings(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long ownerId, @RequestParam(defaultValue = "ALL") String state) {
         log.debug("Получен запрос на получение всех бронирований владельца с id={} со статусом {}", ownerId, state);
         return bookingService.getOwnerBookings(ownerId, state);
     }
 }
+
