@@ -3,143 +3,138 @@ package ru.practicum.shareit.item.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.practicum.shareit.exception.ForbiddenException;
-import ru.practicum.shareit.item.dao.ItemDao;
+import ru.practicum.shareit.booking.model.Booking;
+import ru.practicum.shareit.booking.model.BookingStatus;
+import ru.practicum.shareit.booking.repository.BookingRepository;
+import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemUpdateDto;
+import ru.practicum.shareit.item.mapper.CommentMapper;
 import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.Item;
-import ru.practicum.shareit.user.dao.UserDao;
+import ru.practicum.shareit.item.repository.CommentRepository;
+import ru.practicum.shareit.item.repository.ItemRepository;
+import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.user.model.User;
-import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.request.model.ItemRequest;
+import ru.practicum.shareit.request.repository.ItemRequestRepository;
+import ru.practicum.shareit.comment.model.Comment;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
+import javax.validation.ValidationException;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ItemServiceImpl implements ItemService {
 
-    private final ItemDao inMemoryItemDao;
-    private final UserDao userDao;
+    private final ItemRepository itemRepository;
+    private final UserRepository userRepository;
+    private final ItemRequestRepository itemRequestRepository;
+    private final CommentRepository commentRepository;
+    private final BookingRepository bookingRepository;
 
     @Override
     public ItemDto addItem(Long userId, @Valid ItemDto itemDto) {
         log.debug("Добавление вещи пользователем с id={}, данными: {}", userId, itemDto);
-        try {
-            User owner = userDao.getUser(userId);
-            if (owner == null) {
-                log.error("Пользователь с id={} не найден", userId);
-                throw new NotFoundException("Пользователь с id=" + userId + " не найден");
-            }
-
-            Item item = ItemMapper.toModel(itemDto, owner, null);
-            ItemDto createdItem = ItemMapper.toItemDto(inMemoryItemDao.addItem(userId, itemDto));
-            log.debug("Вещь успешно добавлена: {}", createdItem);
-            return createdItem;
-        } catch (NotFoundException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Ошибка при добавлении вещи: {}", e.getMessage(), e);
-            throw e;
-        }
+        User owner = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        ItemRequest request = itemDto.getRequest() != null ? itemRequestRepository.findById(itemDto.getRequest()).orElse(null) : null;
+        Item item = ItemMapper.toModel(itemDto, owner, request);
+        Item savedItem = itemRepository.save(item);
+        log.debug("Вещь успешно добавлена: {}", savedItem);
+        return ItemMapper.toItemDto(savedItem);
     }
 
     @Override
     public ItemDto updateItem(Long itemId, Long userId, @Valid ItemUpdateDto itemUpdateDto) {
         log.debug("Обновление вещи с id={} пользователем с id={}, данными: {}", itemId, userId, itemUpdateDto);
-        try {
-            Item existingItem = inMemoryItemDao.getItem(itemId);
-            if (existingItem == null) {
-                log.error("Вещь с id={} не найдена", itemId);
-                throw new NotFoundException("Вещь с id=" + itemId + " не найдена");
-            }
-            if (!existingItem.getOwner().getId().equals(userId)) {
-                log.error("Пользователь с id={} не является владельцем вещи с id={}", userId, itemId);
-                throw new ForbiddenException("Пользователь с id=" + userId + " не является владельцем вещи с id=" + itemId);
-            }
-
-            if (itemUpdateDto.getName() != null) {
-                existingItem.setName(itemUpdateDto.getName());
-            }
-            if (itemUpdateDto.getDescription() != null) {
-                existingItem.setDescription(itemUpdateDto.getDescription());
-            }
-            if (itemUpdateDto.getAvailable() != null) {
-                existingItem.setAvailable(itemUpdateDto.getAvailable());
-            }
-            inMemoryItemDao.updateItem(userId, itemUpdateDto, itemId);
-            log.debug("Вещь с id={} успешно обновлена: {}", itemId, existingItem);
-            return ItemMapper.toItemDto(existingItem);
-        } catch (NotFoundException | ForbiddenException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Ошибка при обновлении вещи с id={} пользователем с id={}: {}", itemId, userId, e.getMessage(), e);
-            throw e;
+        Item existingItem = itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException("Вещь не найдена"));
+        if (!existingItem.getOwner().getId().equals(userId)) {
+            throw new NotFoundException("Пользователь не является владельцем вещи");
         }
+        if (itemUpdateDto.getName() != null) {
+            existingItem.setName(itemUpdateDto.getName());
+        }
+        if (itemUpdateDto.getDescription() != null) {
+            existingItem.setDescription(itemUpdateDto.getDescription());
+        }
+        if (itemUpdateDto.getAvailable() != null) {
+            existingItem.setAvailable(itemUpdateDto.getAvailable());
+        }
+        Item updatedItem = itemRepository.save(existingItem);
+        log.debug("Вещь с id={} успешно обновлена: {}", itemId, updatedItem);
+        return ItemMapper.toItemDto(updatedItem);
     }
 
     @Override
-    public ItemDto getItem(Long itemId) {
+    public ItemDto getItem(Long itemId, Long userId) {
         log.debug("Получение вещи с id={}", itemId);
-        try {
-            ItemDto itemDto = ItemMapper.toItemDto(inMemoryItemDao.getItem(itemId));
-            if (itemDto == null) {
-                log.error("Ошибка при получении вещи с id={}: вещь не найдена", itemId);
-            }
-            log.debug("Вещь с id={} успешно получена: {}", itemId, itemDto);
-            return itemDto;
-        } catch (Exception e) {
-            log.error("Ошибка при получении вещи с id={}: {}", itemId, e.getMessage(), e);
-            throw e;
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException("Вещь не найдена"));
+        List<Comment> comments = commentRepository.findByItemId(itemId);
+        if (item.getOwner().getId().equals(userId)) {
+            LocalDateTime now = LocalDateTime.now();
+            Booking lastBooking = bookingRepository.findFirstByItemIdAndStartLessThanEqualAndStatusOrderByEndDesc(itemId, now, BookingStatus.APPROVED);
+            Booking nextBooking = bookingRepository.findFirstByItemIdAndStartGreaterThanEqualAndStatusOrderByStartAsc(itemId, now, BookingStatus.APPROVED);
+            return ItemMapper.toItemDto(item, comments, lastBooking, nextBooking);
+        } else {
+            return ItemMapper.toItemDto(item, comments, null, null);
         }
     }
 
     @Override
     public List<ItemDto> getItems(Long userId) {
         log.debug("Получение всех вещей пользователя с id={}", userId);
-        try {
-            List<Item> items = inMemoryItemDao.getItems(userId);
-            List<ItemDto> itemDtoList = new ArrayList<>();
-            for (Item item : items) {
-                itemDtoList.add(ItemMapper.toItemDto(item));
-            }
-            log.debug("Всего вещей найдено: {}", itemDtoList.size());
-            return itemDtoList;
-        } catch (Exception e) {
-            log.error("Ошибка при получении списка вещей пользователя с id={}: {}", userId, e.getMessage(), e);
-            throw e;
-        }
+        return itemRepository.findByOwnerId(userId).stream()
+                .map(item -> {
+                    List<Comment> comments = commentRepository.findByItemId(item.getId());
+                    LocalDateTime now = LocalDateTime.now();
+                    Booking lastBooking = bookingRepository.findFirstByItemIdAndStartLessThanEqualAndStatusOrderByEndDesc(item.getId(), now, BookingStatus.APPROVED);
+                    Booking nextBooking = bookingRepository.findFirstByItemIdAndStartGreaterThanEqualAndStatusOrderByStartAsc(item.getId(), now, BookingStatus.APPROVED);
+                    return ItemMapper.toItemDto(item, comments, lastBooking, nextBooking);
+                })
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<ItemDto> searchItems(String text) {
         log.debug("Поиск вещей с текстом: {}", text);
-        try {
-            List<Item> items = inMemoryItemDao.searchItems(text);
-            List<ItemDto> itemDtoList = new ArrayList<>();
-            for (Item item : items) {
-                itemDtoList.add(ItemMapper.toItemDto(item));
-            }
-            log.debug("Поиск завершен. Найдено вещей: {}", itemDtoList.size());
-            return itemDtoList;
-        } catch (Exception e) {
-            log.error("Ошибка при поиске вещей с текстом '{}': {}", text, e.getMessage(), e);
-            throw e;
+        if (text == null || text.trim().isEmpty()) {
+            return List.of();
         }
+        return itemRepository.search(text).stream()
+                .map(ItemMapper::toItemDto)
+                .collect(Collectors.toList());
     }
 
     @Override
     public void deleteItem(Long itemId) {
         log.debug("Удаление вещи с id={}", itemId);
-        try {
-            inMemoryItemDao.deleteItem(itemId);
-            log.debug("Вещь с id={} успешно удалена", itemId);
-        } catch (Exception e) {
-            log.error("Ошибка при удалении вещи с id={}: {}", itemId, e.getMessage(), e);
-            throw e;
+        itemRepository.deleteById(itemId);
+        log.debug("Вещь с id={} успешно удалена", itemId);
+    }
+
+    @Override
+    public CommentDto addComment(Long userId, Long itemId, @Valid CommentDto commentDto) {
+        log.debug("Добавление комментария пользователем с id={} к вещи с id={}, данными: {}", userId, itemId, commentDto);
+        User author = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Вещь не найдена"));
+        boolean hasBooking = bookingRepository.existsByItemIdAndBookerIdAndStatusAndEndBefore(
+                itemId, userId, BookingStatus.APPROVED, LocalDateTime.now());
+        if (!hasBooking) {
+            throw new ValidationException("Пользователь не может оставлять комментарии, если он не бронировал этот предмет");
         }
+        Comment comment = new Comment();
+        comment.setText(commentDto.getText());
+        comment.setItem(item);
+        comment.setAuthor(author);
+        comment = commentRepository.save(comment);
+        log.debug("Комментарий успешно добавлен: {}", comment);
+        return CommentMapper.toCommentDto(comment);
     }
 }

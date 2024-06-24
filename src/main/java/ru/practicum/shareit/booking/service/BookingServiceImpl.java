@@ -3,116 +3,152 @@ package ru.practicum.shareit.booking.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.practicum.shareit.booking.dao.BookingDao;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.mapper.BookingMapper;
 import ru.practicum.shareit.booking.model.Booking;
-import ru.practicum.shareit.item.dao.ItemDao;
+import ru.practicum.shareit.booking.model.BookingStatus;
+import ru.practicum.shareit.booking.repository.BookingRepository;
+import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.UnsupportedException;
 import ru.practicum.shareit.item.model.Item;
-import ru.practicum.shareit.user.dao.UserDao;
+import ru.practicum.shareit.item.repository.ItemRepository;
 import ru.practicum.shareit.user.model.User;
+import ru.practicum.shareit.user.repository.UserRepository;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
+import javax.validation.ValidationException;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class BookingServiceImpl implements BookingService {
 
-    private final BookingDao bookingDao;
-    private final ItemDao itemDao;
-    private final UserDao userDao;
+    private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
+    private final ItemRepository itemRepository;
 
     @Override
+    @Transactional
     public BookingDto addBooking(Long userId, @Valid BookingDto bookingDto) {
         log.debug("Добавление бронирования пользователем с id={}, данными: {}", userId, bookingDto);
-        try {
-            Item item = itemDao.getItem(bookingDto.getItemId());
-            User booker = userDao.getUser(userId);
-
-            if (item == null || booker == null || item.getOwner().getId().equals(userId)) {
-                throw new IllegalArgumentException("Некорректные данные бронирования");
-            }
-
-            Booking booking = BookingMapper.toModel(bookingDto, item, booker);
-            BookingDto createdBooking = BookingMapper.toBookingDto(bookingDao.addBooking(userId, booking));
-            log.debug("Бронирование успешно добавлено: {}", createdBooking);
-            return createdBooking;
-        } catch (Exception e) {
-            log.error("Ошибка при добавлении бронирования: {}", e.getMessage(), e);
-            throw e;
+        User booker = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        Item item = itemRepository.findById(bookingDto.getItemId())
+                .orElseThrow(() -> new NotFoundException("Вещь не найдена"));
+        log.debug("Найден пользователь: {}, Найденная вещь: {}", booker, item);
+        if (!item.getAvailable()) {
+            log.error("Вещь с id={} недоступна для бронирования", item.getId());
+            throw new ValidationException("Вещь недоступна для бронирования");
         }
+        if (item.getOwner().getId().equals(userId)) {
+            log.error("Пользователь с id={} пытается забронировать свою вещь с id={}", userId, item.getId());
+            throw new NotFoundException("Нельзя забронировать свою вещь");
+        }
+        if (bookingDto.getStart().isEqual(bookingDto.getEnd()) || bookingDto.getStart().isAfter(bookingDto.getEnd())) {
+            log.error("Некорректные даты бронирования: start={}, end={}", bookingDto.getStart(), bookingDto.getEnd());
+            throw new ValidationException("Дата начала бронирования должна быть раньше даты окончания");
+        }
+        Booking booking = BookingMapper.toModel(bookingDto, item, booker);
+        booking.setStatus(BookingStatus.WAITING);
+        Booking savedBooking = bookingRepository.save(booking);
+        log.debug("Бронирование успешно добавлено: {}", savedBooking);
+        return BookingMapper.toBookingDto(savedBooking);
     }
 
     @Override
+    @Transactional
     public BookingDto updateBookingStatus(Long bookingId, Long userId, boolean approved) {
         log.debug("Обновление статуса бронирования с id={} пользователем с id={}, одобрено: {}", bookingId, userId, approved);
-        try {
-            Booking booking = bookingDao.getBooking(bookingId);
-            if (booking == null || !booking.getItem().getOwner().getId().equals(userId)) {
-                throw new IllegalArgumentException("Некорректные данные бронирования");
-            }
-
-            BookingDto updatedBooking = BookingMapper.toBookingDto(bookingDao.updateBookingStatus(bookingId, approved));
-            log.debug("Статус бронирования с id={} успешно обновлен: {}", bookingId, updatedBooking);
-            return updatedBooking;
-        } catch (Exception e) {
-            log.error("Ошибка при обновлении статуса бронирования: {}", e.getMessage(), e);
-            throw e;
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new NotFoundException("Бронирование не найдено"));
+        if (!booking.getItem().getOwner().getId().equals(userId)) {
+            throw new NotFoundException("Пользователь не является владельцем вещи");
         }
+        if (booking.getStatus() == BookingStatus.APPROVED) {
+            throw new ValidationException("Бронирование уже подтверждено");
+        }
+        booking.setStatus(approved ? BookingStatus.APPROVED : BookingStatus.REJECTED);
+        Booking updatedBooking = bookingRepository.save(booking);
+        log.debug("Статус бронирования успешно обновлен: {}", updatedBooking);
+        return BookingMapper.toBookingDto(updatedBooking);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public BookingDto getBooking(Long bookingId, Long userId) {
         log.debug("Получение бронирования с id={} пользователем с id={}", bookingId, userId);
-        try {
-            Booking booking = bookingDao.getBooking(bookingId);
-            if (booking == null || (!booking.getBooker().getId().equals(userId) && !booking.getItem().getOwner().getId().equals(userId))) {
-                throw new IllegalArgumentException("Некорректные данные бронирования");
-            }
-
-            BookingDto bookingDto = BookingMapper.toBookingDto(booking);
-            log.debug("Бронирование с id={} успешно получено: {}", bookingId, bookingDto);
-            return bookingDto;
-        } catch (Exception e) {
-            log.error("Ошибка при получении бронирования: {}", e.getMessage(), e);
-            throw e;
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow(() -> new NotFoundException("Бронирование не найдено"));
+        if (!booking.getBooker().getId().equals(userId) && !booking.getItem().getOwner().getId().equals(userId)) {
+            throw new NotFoundException("Пользователь не имеет доступа к этому бронированию");
         }
+        return BookingMapper.toBookingDto(booking);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<BookingDto> getUserBookings(Long userId, String state) {
         log.debug("Получение всех бронирований пользователя с id={} со статусом {}", userId, state);
-        try {
-            List<Booking> bookings = bookingDao.getUserBookings(userId, state);
-            List<BookingDto> bookingDtoList = new ArrayList<>();
-            for (Booking booking : bookings) {
-                bookingDtoList.add(BookingMapper.toBookingDto(booking));
-            }
-            log.debug("Всего бронирований найдено: {}", bookingDtoList.size());
-            return bookingDtoList;
-        } catch (Exception e) {
-            log.error("Ошибка при получении бронирований пользователя: {}", e.getMessage(), e);
-            throw e;
+        userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        LocalDateTime now = LocalDateTime.now();
+        List<Booking> bookings;
+        switch (state.toUpperCase()) {
+            case "CURRENT":
+                bookings = bookingRepository.findCurrentBookings(userId, now);
+                break;
+            case "PAST":
+                bookings = bookingRepository.findPastBookings(userId, now);
+                break;
+            case "FUTURE":
+                bookings = bookingRepository.findFutureBookings(userId, now);
+                break;
+            case "WAITING":
+                bookings = bookingRepository.findByBookerIdAndStatus(userId, BookingStatus.WAITING);
+                break;
+            case "REJECTED":
+                bookings = bookingRepository.findByBookerIdAndStatus(userId, BookingStatus.REJECTED);
+                break;
+            case "ALL":
+                bookings = bookingRepository.findByBookerIdOrderByStartDesc(userId);
+                break;
+            default:
+                throw new UnsupportedException("{\"error\":\"Unknown state: " + state + "\"}", state);
         }
+        return bookings.stream().map(BookingMapper::toBookingDto).collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<BookingDto> getOwnerBookings(Long ownerId, String state) {
         log.debug("Получение всех бронирований владельца с id={} со статусом {}", ownerId, state);
-        try {
-            List<Booking> bookings = bookingDao.getOwnerBookings(ownerId, state);
-            List<BookingDto> bookingDtoList = new ArrayList<>();
-            for (Booking booking : bookings) {
-                bookingDtoList.add(BookingMapper.toBookingDto(booking));
-            }
-            log.debug("Всего бронирований найдено: {}", bookingDtoList.size());
-            return bookingDtoList;
-        } catch (Exception e) {
-            log.error("Ошибка при получении бронирований владельца: {}", e.getMessage(), e);
-            throw e;
+        userRepository.findById(ownerId).orElseThrow(() -> new NotFoundException("Владелец не найден"));
+        LocalDateTime now = LocalDateTime.now();
+        List<Booking> bookings;
+        switch (state.toUpperCase()) {
+            case "CURRENT":
+                bookings = bookingRepository.findCurrentOwnerBookings(ownerId, now);
+                break;
+            case "PAST":
+                bookings = bookingRepository.findPastOwnerBookings(ownerId, now);
+                break;
+            case "FUTURE":
+                bookings = bookingRepository.findFutureOwnerBookings(ownerId, now);
+                break;
+            case "WAITING":
+                bookings = bookingRepository.findOwnerBookingsByStatus(ownerId, BookingStatus.WAITING);
+                break;
+            case "REJECTED":
+                bookings = bookingRepository.findOwnerBookingsByStatus(ownerId, BookingStatus.REJECTED);
+                break;
+            case "ALL":
+                bookings = bookingRepository.findByItemOwnerId(ownerId);
+                break;
+            default:
+                throw new UnsupportedException("{\"error\":\"Unknown state: " + state + "\"}", state);
         }
+        return bookings.stream().map(BookingMapper::toBookingDto).collect(Collectors.toList());
     }
 }

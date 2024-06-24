@@ -15,15 +15,15 @@ public class ItemRequestMapper {
                 itemRequest.getId(),
                 itemRequest.getDescription(),
                 itemRequest.getCreated(),
-                itemRequest.getRequest().getId()
+                itemRequest.getRequestor().getId()
         );
     }
 
-    public ItemRequest toModel(ItemRequestDto itemRequestDto, User request) {
+    public ItemRequest toModel(ItemRequestDto itemRequestDto, User requestor) {
         return new ItemRequest(
                 itemRequestDto.getId(),
                 itemRequestDto.getDescription(),
-                request,
+                requestor,
                 itemRequestDto.getCreated() != null ? itemRequestDto.getCreated() : LocalDateTime.now()
         );
     }
