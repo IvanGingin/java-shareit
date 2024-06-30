@@ -226,4 +226,134 @@ class BookingServiceImplTest {
         });
         assertEquals("{\"error\":\"Unknown state: UNSUPPORTED\"}", exception.getMessage());
     }
+
+    @Test
+    void testGetUserBookings_Current() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(user));
+        when(bookingRepository.findCurrentBookings(anyLong(), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getUserBookings(user.getId(), "CURRENT", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetUserBookings_Past() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(user));
+        when(bookingRepository.findPastBookings(anyLong(), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getUserBookings(user.getId(), "PAST", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetUserBookings_Future() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(user));
+        when(bookingRepository.findFutureBookings(anyLong(), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getUserBookings(user.getId(), "FUTURE", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetUserBookings_Waiting() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(user));
+        when(bookingRepository.findByBookerIdAndStatus(anyLong(), eq(BookingStatus.WAITING), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getUserBookings(user.getId(), "WAITING", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetUserBookings_Rejected() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(user));
+        when(bookingRepository.findByBookerIdAndStatus(anyLong(), eq(BookingStatus.REJECTED), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getUserBookings(user.getId(), "REJECTED", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetOwnerBookings_Current() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(owner));
+        when(bookingRepository.findCurrentOwnerBookings(anyLong(), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getOwnerBookings(owner.getId(), "CURRENT", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetOwnerBookings_Past() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(owner));
+        when(bookingRepository.findPastOwnerBookings(anyLong(), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getOwnerBookings(owner.getId(), "PAST", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetOwnerBookings_Future() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(owner));
+        when(bookingRepository.findFutureOwnerBookings(anyLong(), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getOwnerBookings(owner.getId(), "FUTURE", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetOwnerBookings_Waiting() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(owner));
+        when(bookingRepository.findOwnerBookingsByStatus(anyLong(), eq(BookingStatus.WAITING), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getOwnerBookings(owner.getId(), "WAITING", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
+
+    @Test
+    void testGetOwnerBookings_Rejected() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(owner));
+        when(bookingRepository.findOwnerBookingsByStatus(anyLong(), eq(BookingStatus.REJECTED), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(booking)));
+
+        List<BookingDto> result = bookingService.getOwnerBookings(owner.getId(), "REJECTED", 0, 10);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(booking.getId(), result.get(0).getId());
+    }
 }

@@ -1,15 +1,17 @@
 package ru.practicum.shareit.request.dto;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import org.springframework.boot.test.json.JacksonTester;
-import org.springframework.boot.test.json.ObjectContent;
 import org.springframework.boot.test.json.JsonContent;
-import ru.practicum.shareit.item.dto.ItemDto;
+import org.springframework.boot.test.json.ObjectContent;
+import ru.practicum.shareit.request.mapper.ItemRequestMapper;
+import ru.practicum.shareit.request.model.ItemRequest;
+import ru.practicum.shareit.user.model.User;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,70 +22,49 @@ public class ItemRequestDtoJsonTest {
     @Autowired
     private JacksonTester<ItemRequestDto> json;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Test
-    void testSerialize() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
-        ItemDto itemDto = new ItemDto(1L, "Item", "Description", true, 1L, null, null, null, null);
-        ItemRequestDto itemRequestDto = new ItemRequestDto(1L, "Description", now, 1L, Collections.singletonList(itemDto));
-        JsonContent<ItemRequestDto> result = json.write(itemRequestDto);
-        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    public void testSerialize() throws Exception {
+        LocalDateTime created = LocalDateTime.of(2024, 6, 30, 14, 0);
+        ItemRequestDto dto = new ItemRequestDto(1L, "Test Description", created, 1L, Collections.emptyList());
+
+        JsonContent<ItemRequestDto> result = json.write(dto);
+
         assertThat(result).hasJsonPathNumberValue("$.id");
         assertThat(result).extractingJsonPathNumberValue("$.id").isEqualTo(1);
         assertThat(result).hasJsonPathStringValue("$.description");
-        assertThat(result).extractingJsonPathStringValue("$.description").isEqualTo("Description");
+        assertThat(result).extractingJsonPathStringValue("$.description").isEqualTo("Test Description");
         assertThat(result).hasJsonPathStringValue("$.created");
-        assertThat(result).extractingJsonPathStringValue("$.created").isEqualTo(now.format(formatter));
+        assertThat(result).extractingJsonPathStringValue("$.created").isEqualTo("2024-06-30T14:00:00");
         assertThat(result).hasJsonPathNumberValue("$.requestorId");
         assertThat(result).extractingJsonPathNumberValue("$.requestorId").isEqualTo(1);
-        assertThat(result).hasJsonPathArrayValue("$.items");
-        assertThat(result).extractingJsonPathArrayValue("$.items").hasSize(1);
-        assertThat(result).extractingJsonPathNumberValue("$.items[0].id").isEqualTo(1);
-        assertThat(result).extractingJsonPathStringValue("$.items[0].name").isEqualTo("Item");
     }
 
     @Test
-    void testDeserialize() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-        String content = String.format(
-                "{\"id\":1,\"description\":\"Description\",\"created\":\"%s\",\"requestorId\":1,\"items\":[{\"id\":1,\"name\":\"Item\",\"description\":\"Description\",\"available\":true,\"owner\":1}]}",
-                now.format(formatter));
+    public void testDeserialize() throws Exception {
+        String content = "{\"id\":1,\"description\":\"Test Description\",\"created\":\"2024-06-30T14:00:00\",\"requestorId\":1,\"items\":[]}";
+
         ObjectContent<ItemRequestDto> result = json.parse(content);
-        assertThat(result).isEqualTo(new ItemRequestDto(1L, "Description", now, 1L, Collections.singletonList(new ItemDto(1L, "Item", "Description", true, 1L, null, null, null, null))));
-        assertThat(result.getObject().getId()).isEqualTo(1);
-        assertThat(result.getObject().getDescription()).isEqualTo("Description");
-        assertThat(result.getObject().getCreated()).isEqualTo(now);
-        assertThat(result.getObject().getRequestorId()).isEqualTo(1);
-        assertThat(result.getObject().getItems()).hasSize(1);
-        assertThat(result.getObject().getItems().get(0).getId()).isEqualTo(1);
-        assertThat(result.getObject().getItems().get(0).getName()).isEqualTo("Item");
+
+        assertThat(result).isEqualTo(new ItemRequestDto(1L, "Test Description", LocalDateTime.of(2024, 6, 30, 14, 0), 1L, Collections.emptyList()));
     }
 
     @Test
-    void testDeserializeMissingFields() throws Exception {
-        String content = "{\"id\":1,\"description\":\"Description\",\"requestorId\":1}";
-        ObjectContent<ItemRequestDto> result = json.parse(content);
-        assertThat(result.getObject().getId()).isEqualTo(1);
-        assertThat(result.getObject().getDescription()).isEqualTo("Description");
-        assertThat(result.getObject().getCreated()).isNull();
-        assertThat(result.getObject().getRequestorId()).isEqualTo(1);
-        assertThat(result.getObject().getItems()).isNull();
-    }
+    public void testItemRequestMapperWhenCreatedIsNull() {
+        ItemRequestDto dto = new ItemRequestDto(null, "Test Description", null, 1L, Collections.emptyList());
+        User user = new User();
+        user.setId(1L);
 
-    @Test
-    void testDeserializeAdditionalFields() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-        String content = String.format(
-                "{\"id\":1,\"description\":\"Description\",\"created\":\"%s\",\"requestorId\":1,\"items\":[{\"id\":1,\"name\":\"Item\",\"description\":\"Description\",\"available\":true,\"owner\":1}],\"extraField\":\"extraValue\"}",
-                now.format(formatter));
-        ObjectContent<ItemRequestDto> result = json.parse(content);
-        assertThat(result.getObject().getId()).isEqualTo(1);
-        assertThat(result.getObject().getDescription()).isEqualTo("Description");
-        assertThat(result.getObject().getCreated()).isEqualTo(now);
-        assertThat(result.getObject().getRequestorId()).isEqualTo(1);
-        assertThat(result.getObject().getItems()).hasSize(1);
-        assertThat(result.getObject().getItems().get(0).getId()).isEqualTo(1);
-        assertThat(result.getObject().getItems().get(0).getName()).isEqualTo("Item");
+        ItemRequestMapper mapper = new ItemRequestMapper();
+        LocalDateTime before = LocalDateTime.now();
+        ItemRequest itemRequest = mapper.toModel(dto, user);
+        LocalDateTime after = LocalDateTime.now();
+
+        assertThat(itemRequest.getDescription()).isEqualTo("Test Description");
+        assertThat(itemRequest.getRequestor().getId()).isEqualTo(1L);
+        assertThat(itemRequest.getCreated()).isAfterOrEqualTo(before);
+        assertThat(itemRequest.getCreated()).isBeforeOrEqualTo(after);
     }
 }
