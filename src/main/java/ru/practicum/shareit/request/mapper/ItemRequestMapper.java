@@ -1,21 +1,24 @@
 package ru.practicum.shareit.request.mapper;
 
-import lombok.experimental.UtilityClass;
+import org.springframework.stereotype.Component;
+import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.request.dto.ItemRequestDto;
 import ru.practicum.shareit.request.model.ItemRequest;
 import ru.practicum.shareit.user.model.User;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
-@UtilityClass
+@Component
 public class ItemRequestMapper {
 
-    public ItemRequestDto toItemRequestDto(ItemRequest itemRequest) {
+    public ItemRequestDto toItemRequestDto(ItemRequest itemRequest, List<ItemDto> items) {
         return new ItemRequestDto(
                 itemRequest.getId(),
                 itemRequest.getDescription(),
                 itemRequest.getCreated(),
-                itemRequest.getRequestor().getId()
+                itemRequest.getRequestor().getId(),
+                items
         );
     }
 

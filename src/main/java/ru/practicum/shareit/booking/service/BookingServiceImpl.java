@@ -2,6 +2,8 @@ package ru.practicum.shareit.booking.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.booking.dto.BookingDto;
@@ -90,29 +92,30 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<BookingDto> getUserBookings(Long userId, String state) {
+    public List<BookingDto> getUserBookings(Long userId, String state, int from, int size) {
         log.debug("Получение всех бронирований пользователя с id={} со статусом {}", userId, state);
         userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
         LocalDateTime now = LocalDateTime.now();
+        Pageable pageable = PageRequest.of(from / size, size);
         List<Booking> bookings;
         switch (state.toUpperCase()) {
             case "CURRENT":
-                bookings = bookingRepository.findCurrentBookings(userId, now);
+                bookings = bookingRepository.findCurrentBookings(userId, now, pageable).getContent();
                 break;
             case "PAST":
-                bookings = bookingRepository.findPastBookings(userId, now);
+                bookings = bookingRepository.findPastBookings(userId, now, pageable).getContent();
                 break;
             case "FUTURE":
-                bookings = bookingRepository.findFutureBookings(userId, now);
+                bookings = bookingRepository.findFutureBookings(userId, now, pageable).getContent();
                 break;
             case "WAITING":
-                bookings = bookingRepository.findByBookerIdAndStatus(userId, BookingStatus.WAITING);
+                bookings = bookingRepository.findByBookerIdAndStatus(userId, BookingStatus.WAITING, pageable).getContent();
                 break;
             case "REJECTED":
-                bookings = bookingRepository.findByBookerIdAndStatus(userId, BookingStatus.REJECTED);
+                bookings = bookingRepository.findByBookerIdAndStatus(userId, BookingStatus.REJECTED, pageable).getContent();
                 break;
             case "ALL":
-                bookings = bookingRepository.findByBookerIdOrderByStartDesc(userId);
+                bookings = bookingRepository.findByBookerIdOrderByStartDesc(userId, pageable).getContent();
                 break;
             default:
                 throw new UnsupportedException("{\"error\":\"Unknown state: " + state + "\"}", state);
@@ -122,29 +125,30 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<BookingDto> getOwnerBookings(Long ownerId, String state) {
+    public List<BookingDto> getOwnerBookings(Long ownerId, String state, int from, int size) {
         log.debug("Получение всех бронирований владельца с id={} со статусом {}", ownerId, state);
         userRepository.findById(ownerId).orElseThrow(() -> new NotFoundException("Владелец не найден"));
         LocalDateTime now = LocalDateTime.now();
+        Pageable pageable = PageRequest.of(from / size, size);
         List<Booking> bookings;
         switch (state.toUpperCase()) {
             case "CURRENT":
-                bookings = bookingRepository.findCurrentOwnerBookings(ownerId, now);
+                bookings = bookingRepository.findCurrentOwnerBookings(ownerId, now, pageable).getContent();
                 break;
             case "PAST":
-                bookings = bookingRepository.findPastOwnerBookings(ownerId, now);
+                bookings = bookingRepository.findPastOwnerBookings(ownerId, now, pageable).getContent();
                 break;
             case "FUTURE":
-                bookings = bookingRepository.findFutureOwnerBookings(ownerId, now);
+                bookings = bookingRepository.findFutureOwnerBookings(ownerId, now, pageable).getContent();
                 break;
             case "WAITING":
-                bookings = bookingRepository.findOwnerBookingsByStatus(ownerId, BookingStatus.WAITING);
+                bookings = bookingRepository.findOwnerBookingsByStatus(ownerId, BookingStatus.WAITING, pageable).getContent();
                 break;
             case "REJECTED":
-                bookings = bookingRepository.findOwnerBookingsByStatus(ownerId, BookingStatus.REJECTED);
+                bookings = bookingRepository.findOwnerBookingsByStatus(ownerId, BookingStatus.REJECTED, pageable).getContent();
                 break;
             case "ALL":
-                bookings = bookingRepository.findByItemOwnerId(ownerId);
+                bookings = bookingRepository.findByItemOwnerId(ownerId, pageable).getContent();
                 break;
             default:
                 throw new UnsupportedException("{\"error\":\"Unknown state: " + state + "\"}", state);
