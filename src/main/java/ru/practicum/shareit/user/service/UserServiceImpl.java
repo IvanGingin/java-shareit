@@ -2,8 +2,11 @@ package ru.practicum.shareit.user.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import ru.practicum.shareit.exception.AlreadyExistsException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.user.dto.UserDto;
 import ru.practicum.shareit.user.dto.UserUpdateDto;
 import ru.practicum.shareit.user.mapper.UserMapper;
@@ -24,15 +27,27 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDto addUser(@Valid UserDto userDto) {
+        if (userDto == null) {
+            throw new ValidationException("Вы не передали информацию о пользователе!");
+        }
+
         log.debug("Добавление пользователя с данными: {}", userDto);
         User user = UserMapper.toModel(userDto);
-        User savedUser = userRepository.save(user);
-        log.debug("Пользователь успешно добавлен: {}", savedUser);
-        return UserMapper.toUserDto(savedUser);
+        try {
+            User savedUser = userRepository.save(user);
+            log.debug("Пользователь успешно добавлен: {}", savedUser);
+            return UserMapper.toUserDto(savedUser);
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyExistsException("Пользователь с таким email уже существует!");
+        }
     }
 
     @Override
     public UserDto updateUser(Long userId, UserUpdateDto userUpdateDto) {
+        if (userUpdateDto == null) {
+            throw new ValidationException("Вы не передали информацию о пользователе!");
+        }
+
         log.debug("Обновление пользователя с id={}, данными: {}", userId, userUpdateDto);
         Optional<User> optionalUser = userRepository.findById(userId);
         if (optionalUser.isEmpty()) {
@@ -45,9 +60,13 @@ public class UserServiceImpl implements UserService {
         if (userUpdateDto.getName() != null && !userUpdateDto.getName().isBlank()) {
             existingUser.setName(userUpdateDto.getName());
         }
-        User updatedUser = userRepository.save(existingUser);
-        log.debug("Пользователь с id={} успешно обновлён: {}", userId, updatedUser);
-        return UserMapper.toUserDto(updatedUser);
+        try {
+            User updatedUser = userRepository.save(existingUser);
+            log.debug("Пользователь с id={} успешно обновлён: {}", userId, updatedUser);
+            return UserMapper.toUserDto(updatedUser);
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyExistsException("Пользователь с таким email уже существует!");
+        }
     }
 
     @Override

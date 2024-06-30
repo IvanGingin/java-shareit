@@ -2,18 +2,22 @@ package ru.practicum.shareit.booking.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.service.BookingService;
 import ru.practicum.shareit.util.Constants;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.PositiveOrZero;
 import java.util.List;
 
 @RestController
 @RequestMapping("/bookings")
 @RequiredArgsConstructor
 @Slf4j
+@Validated
 public class BookingController {
 
     private final BookingService bookingService;
@@ -37,15 +41,20 @@ public class BookingController {
     }
 
     @GetMapping
-    public List<BookingDto> getUserBookings(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long userId, @RequestParam(defaultValue = "ALL") String state) {
-        log.debug("Получен запрос на получение всех бронирований пользователя с id={} со статусом {}", userId, state);
-        return bookingService.getUserBookings(userId, state);
+    public List<BookingDto> getUserBookings(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long userId,
+                                            @RequestParam(defaultValue = "ALL") String state,
+                                            @RequestParam(defaultValue = "0") @PositiveOrZero int from,
+                                            @RequestParam(defaultValue = "10") @Min(1) int size) {
+        log.debug("Получен запрос на получение всех бронирований пользователя с id={} со статусом {}, с параметрами from={}, size={}", userId, state, from, size);
+        return bookingService.getUserBookings(userId, state, from, size);
     }
 
     @GetMapping("/owner")
-    public List<BookingDto> getOwnerBookings(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long ownerId, @RequestParam(defaultValue = "ALL") String state) {
-        log.debug("Получен запрос на получение всех бронирований владельца с id={} со статусом {}", ownerId, state);
-        return bookingService.getOwnerBookings(ownerId, state);
+    public List<BookingDto> getOwnerBookings(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long ownerId,
+                                             @RequestParam(defaultValue = "ALL") String state,
+                                             @RequestParam(defaultValue = "0") @PositiveOrZero int from,
+                                             @RequestParam(defaultValue = "10") @Min(1) int size) {
+        log.debug("Получен запрос на получение всех бронирований владельца с id={} со статусом {}, с параметрами from={}, size={}", ownerId, state, from, size);
+        return bookingService.getOwnerBookings(ownerId, state, from, size);
     }
 }
-
