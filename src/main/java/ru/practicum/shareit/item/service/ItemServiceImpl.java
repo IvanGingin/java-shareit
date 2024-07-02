@@ -98,7 +98,6 @@ public class ItemServiceImpl implements ItemService {
         return ItemMapper.toItemDto(updatedItem);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public ItemDto getItem(Long itemId, Long userId) {
@@ -120,13 +119,23 @@ public class ItemServiceImpl implements ItemService {
     public List<ItemDto> getItems(Long userId, int from, int size) {
         log.debug("Получение всех вещей пользователя с id={}", userId);
         Pageable pageable = PageRequest.of(from / size, size, Sort.by("id").ascending());
-        return itemRepository.findByOwnerId(userId, pageable).stream()
+        List<Item> items = itemRepository.findByOwnerId(userId, pageable).getContent();
+        List<Long> itemIds = items.stream().map(Item::getId).collect(Collectors.toList());
+        List<Comment> comments = commentRepository.findByItemIdIn(itemIds);
+        List<Booking> lastBookings = bookingRepository.findLastBookingsByItemIds(itemIds, LocalDateTime.now(), BookingStatus.APPROVED);
+        List<Booking> nextBookings = bookingRepository.findNextBookingsByItemIds(itemIds, LocalDateTime.now(), BookingStatus.APPROVED);
+        return items.stream()
                 .map(item -> {
-                    List<Comment> comments = commentRepository.findByItemId(item.getId());
-                    LocalDateTime now = LocalDateTime.now();
-                    Booking lastBooking = bookingRepository.findFirstByItemIdAndStartLessThanEqualAndStatusOrderByEndDesc(item.getId(), now, BookingStatus.APPROVED);
-                    Booking nextBooking = bookingRepository.findFirstByItemIdAndStartGreaterThanEqualAndStatusOrderByStartAsc(item.getId(), now, BookingStatus.APPROVED);
-                    return ItemMapper.toItemDto(item, comments, lastBooking, nextBooking);
+                    List<Comment> itemComments = comments.stream()
+                            .filter(comment -> comment.getItem().getId().equals(item.getId()))
+                            .collect(Collectors.toList());
+                    Booking lastBooking = lastBookings.stream()
+                            .filter(booking -> booking.getItem().getId().equals(item.getId()))
+                            .findFirst().orElse(null);
+                    Booking nextBooking = nextBookings.stream()
+                            .filter(booking -> booking.getItem().getId().equals(item.getId()))
+                            .findFirst().orElse(null);
+                    return ItemMapper.toItemDto(item, itemComments, lastBooking, nextBooking);
                 })
                 .collect(Collectors.toList());
     }

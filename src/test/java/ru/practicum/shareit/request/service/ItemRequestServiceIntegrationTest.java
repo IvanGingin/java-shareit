@@ -15,6 +15,7 @@ import ru.practicum.shareit.user.repository.UserRepository;
 
 import javax.persistence.EntityManager;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -39,8 +40,8 @@ public class ItemRequestServiceIntegrationTest {
         User requester = new User(null, "Requester", "requester@example.com");
         userRepository.save(user);
         userRepository.save(requester);
-        ItemRequest itemRequest1 = new ItemRequest(null, "описание1", requester, LocalDateTime.now().minusDays(1));
-        ItemRequest itemRequest2 = new ItemRequest(null, "описание2", requester, LocalDateTime.now().minusDays(2));
+        ItemRequest itemRequest1 = new ItemRequest(null, "описание1", requester, LocalDateTime.now().minusDays(1), new ArrayList<>());
+        ItemRequest itemRequest2 = new ItemRequest(null, "описание2", requester, LocalDateTime.now().minusDays(2), new ArrayList<>());
         itemRequestRepository.save(itemRequest1);
         itemRequestRepository.save(itemRequest2);
         Item item1 = new Item(null, "Предмет1", "Описание предмета 1", true, user, itemRequest1);

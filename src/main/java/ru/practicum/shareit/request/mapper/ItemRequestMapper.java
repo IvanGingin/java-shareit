@@ -7,6 +7,7 @@ import ru.practicum.shareit.request.model.ItemRequest;
 import ru.practicum.shareit.user.model.User;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -27,7 +28,8 @@ public class ItemRequestMapper {
                 itemRequestDto.getId(),
                 itemRequestDto.getDescription(),
                 requestor,
-                itemRequestDto.getCreated() != null ? itemRequestDto.getCreated() : LocalDateTime.now()
+                itemRequestDto.getCreated() != null ? itemRequestDto.getCreated() : LocalDateTime.now(),
+                new ArrayList<>()
         );
     }
 }

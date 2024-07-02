@@ -21,6 +21,7 @@ import ru.practicum.shareit.user.model.User;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -55,69 +56,49 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         ItemRequest itemRequest = itemRequestRepository.findById(id).orElseThrow(() -> new NotFoundException("Запрос не найден!"));
         log.debug("Возвращаем объект запроса вещи с id={}", id);
         List<Item> items = itemRepository.findByRequestId(id);
-        List<ItemDto> itemDtos = new ArrayList<>();
-        for (Item item : items) {
-            itemDtos.add(ItemMapper.toItemDto(item));
-        }
+        List<ItemDto> itemDtos = items.stream()
+                .map(ItemMapper::toItemDto)
+                .collect(Collectors.toList());
         return itemRequestMapper.toItemRequestDto(itemRequest, itemDtos);
     }
 
-
     @Override
     public List<ItemRequestDto> getUserRequests(Long userId) {
-        try {
-            log.debug("Получение всех запросов пользователя с id={}", userId);
-            userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
-            List<ItemRequest> itemRequests = itemRequestRepository.findAllByRequestorId(userId);
-            List<ItemRequestDto> result = new ArrayList<>();
-            for (ItemRequest itemRequest : itemRequests) {
-                List<ItemDto> items = new ArrayList<>();
-                List<Item> itemList = itemRepository.findByRequestId(itemRequest.getId());
-                for (Item item : itemList) {
-                    items.add(ItemMapper.toItemDto(item));
-                }
-                result.add(itemRequestMapper.toItemRequestDto(itemRequest, items));
-            }
-            return result;
-        } catch (NotFoundException e) {
-            log.warn("Пользователь с id={} не найден", userId, e);
-            throw e;
-        } catch (Exception e) {
-            log.error("Ошибка при получении всех запросов пользователя с id={}", userId, e);
-            throw new RuntimeException("Внутренняя ошибка сервера", e);
-        }
+        log.debug("Получение всех запросов пользователя с id={}", userId);
+        userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        List<ItemRequest> itemRequests = itemRequestRepository.findAllByRequestorId(userId);
+        return itemRequests.stream()
+                .map(itemRequest -> {
+                    List<ItemDto> items = itemRepository.findByRequestId(itemRequest.getId()).stream()
+                            .map(ItemMapper::toItemDto)
+                            .collect(Collectors.toList());
+                    return itemRequestMapper.toItemRequestDto(itemRequest, items);
+                })
+                .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ItemRequestDto> getAllRequests(Long userId, int from, int size) {
-        try {
-            if (!userRepository.existsById(userId)) {
-                log.debug("Объект типа User с id={} отсутствует в базе данных!", userId);
-                throw new NotFoundException("Пользователь не найден!");
-            }
-            int amountOfRequests = itemRequestRepository.findAmountOfRequests(userId);
-            int pageNum = amountOfRequests > from ? from / size : 0;
-            log.debug("Параметры пагинации: pageNum={}, size={}", pageNum, size);
-            Pageable page = PageRequest.of(pageNum, size, Sort.by("created").descending());
-            List<ItemRequest> itemRequests = itemRequestRepository.findAllInPage(userId, page);
-            List<ItemRequestDto> result = new ArrayList<>();
-            for (ItemRequest itemRequest : itemRequests) {
-                List<ItemDto> items = new ArrayList<>();
-                List<Item> itemList = itemRepository.findByRequestId(itemRequest.getId());
-                for (Item item : itemList) {
-                    items.add(ItemMapper.toItemDto(item));
-                }
-                result.add(itemRequestMapper.toItemRequestDto(itemRequest, items));
-            }
-            log.debug("Количество возвращаемых запросов: {}", result.size());
-            return result;
-        } catch (NotFoundException e) {
-            log.warn("Пользователь с id={} не найден", userId, e);
-            throw e;
-        } catch (Exception e) {
-            log.error("Ошибка при получении всех запросов вещей для пользователя с id={}", userId, e);
-            throw new RuntimeException("Внутренняя ошибка сервера", e);
+        if (!userRepository.existsById(userId)) {
+            log.debug("Объект типа User с id={} отсутствует в базе данных!", userId);
+            throw new NotFoundException("Пользователь не найден!");
         }
+        int amountOfRequests = itemRequestRepository.findAmountOfRequests(userId);
+        int pageNum = amountOfRequests > from ? from / size : 0;
+        log.debug("Параметры пагинации: pageNum={}, size={}", pageNum, size);
+        Pageable page = PageRequest.of(pageNum, size, Sort.by("created").descending());
+        List<ItemRequest> itemRequests = itemRequestRepository.findAllInPage(userId, page);
+        List<ItemRequestDto> result = itemRequests.stream()
+                .map(itemRequest -> {
+                    List<ItemDto> items = itemRepository.findByRequestId(itemRequest.getId()).stream()
+                            .map(ItemMapper::toItemDto)
+                            .collect(Collectors.toList());
+                    return itemRequestMapper.toItemRequestDto(itemRequest, items);
+                })
+                .collect(Collectors.toList());
+        log.debug("Количество возвращаемых запросов: {}", result.size());
+        return result;
     }
 }
+

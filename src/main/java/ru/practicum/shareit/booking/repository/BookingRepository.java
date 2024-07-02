@@ -9,6 +9,7 @@ import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.BookingStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -42,6 +43,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b WHERE b.item.owner.id = :ownerId AND b.status = :status ORDER BY b.start DESC")
     Page<Booking> findOwnerBookingsByStatus(Long ownerId, BookingStatus status, Pageable pageable);
+
+    @Query("SELECT b FROM Booking b WHERE b.item.id IN :itemIds AND b.start <= :currentTime AND b.status = :status ORDER BY b.end DESC")
+    List<Booking> findLastBookingsByItemIds(List<Long> itemIds, LocalDateTime currentTime, BookingStatus status);
+
+    @Query("SELECT b FROM Booking b WHERE b.item.id IN :itemIds AND b.start >= :currentTime AND b.status = :status ORDER BY b.start ASC")
+    List<Booking> findNextBookingsByItemIds(List<Long> itemIds, LocalDateTime currentTime, BookingStatus status);
 
     boolean existsByItemIdAndBookerIdAndStatusAndEndBefore(Long itemId, Long bookerId, BookingStatus status, LocalDateTime end);
 

@@ -54,10 +54,11 @@ class ItemRequestServiceImplTest {
     @BeforeEach
     void setUp() {
         user = new User(1L, "Иван Иванов", "ivan.ivanov@example.com");
-        itemRequest = new ItemRequest(1L, "Описание запроса 1", user, LocalDateTime.now());
+        itemRequest = new ItemRequest(1L, "Описание запроса 1", user, LocalDateTime.now(), new ArrayList<>());
         itemRequestDto = new ItemRequestDto(1L, "Описание запроса 1", LocalDateTime.now(), 1L, new ArrayList<>());
         item = new Item(1L, "Предмет 1", "Описание предмета 1", true, user, itemRequest);
         itemDto = new ItemDto(1L, "Предмет 1", "Описание предмета 1", true, 1L, 1L, null, null, new ArrayList<>());
+        itemRequest.getItems().add(item);
     }
 
     @Test
@@ -131,12 +132,14 @@ class ItemRequestServiceImplTest {
         when(itemRequestRepository.findAllByRequestorId(1L)).thenReturn(List.of(itemRequest));
         when(itemRepository.findByRequestId(1L)).thenReturn(List.of(item));
         when(itemRequestMapper.toItemRequestDto(any(ItemRequest.class), anyList())).thenReturn(itemRequestDto);
+
         List<ItemRequestDto> result = itemRequestService.getUserRequests(1L);
+
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(itemRequestDto, result.get(0));
         verify(itemRequestRepository, times(1)).findAllByRequestorId(1L);
-        verify(itemRepository, times(1)).findByRequestId(1L);
+        verify(itemRepository, times(1)).findByRequestId(1L); // Ожидаемое взаимодействие
     }
 
     @Test

@@ -14,9 +14,9 @@ import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.repository.UserRepository;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -85,11 +85,9 @@ public class UserServiceImpl implements UserService {
     public List<UserDto> getUsers() {
         log.debug("Получение всех пользователей");
         List<User> users = userRepository.findAll();
-        List<UserDto> userDtoList = new ArrayList<>();
-        for (User user : users) {
-            userDtoList.add(UserMapper.toUserDto(user));
-        }
-        return userDtoList;
+        return users.stream()
+                .map(UserMapper::toUserDto)
+                .collect(Collectors.toList());
     }
 
     @Override
