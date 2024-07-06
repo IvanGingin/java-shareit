@@ -9,4 +9,7 @@ import java.util.List;
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByItemId(Long itemId);
+
+    List<Comment> findByItemIdIn(List<Long> itemIds);
 }
+

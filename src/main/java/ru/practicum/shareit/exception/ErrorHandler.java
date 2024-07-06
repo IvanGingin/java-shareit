@@ -51,17 +51,17 @@ public class ErrorHandler {
         return new ErrorResponse(e.getMessage());
     }
 
-    @ExceptionHandler(ConflictException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse handleConflictException(final ConflictException e) {
-        log.debug("Конфликт данных: {}", e.getMessage());
-        return new ErrorResponse(e.getMessage());
-    }
-
     @ExceptionHandler(ForbiddenException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleForbiddenException(final ForbiddenException e) {
         log.debug("Доступ запрещен: {}", e.getMessage());
+        return new ErrorResponse(e.getMessage());
+    }
+
+    @ExceptionHandler(AlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleAlreadyExistsException(final AlreadyExistsException e) {
+        log.debug("Конфликт данных: {}", e.getMessage());
         return new ErrorResponse(e.getMessage());
     }
 

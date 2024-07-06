@@ -39,9 +39,11 @@ public class ItemController {
     }
 
     @GetMapping
-    public List<ItemDto> getItems(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long userId) {
-        log.debug("Получен запрос на получение всех вещей пользователя с id={}", userId);
-        return itemServiceImpl.getItems(userId);
+    public List<ItemDto> getItems(@RequestHeader(Constants.CONST_SHARED_USER_ID) Long userId,
+                                  @RequestParam(defaultValue = "0") int from,
+                                  @RequestParam(defaultValue = "10") int size) {
+        log.debug("Получен запрос на получение всех вещей пользователя с id={}, с параметрами from={}, size={}", userId, from, size);
+        return itemServiceImpl.getItems(userId, from, size);
     }
 
     @DeleteMapping("/{itemId}")
@@ -51,9 +53,11 @@ public class ItemController {
     }
 
     @GetMapping("/search")
-    public List<ItemDto> searchItems(@RequestParam String text) {
-        log.debug("Получен запрос на поиск вещей с текстом: {}", text);
-        return itemServiceImpl.searchItems(text);
+    public List<ItemDto> searchItems(@RequestParam String text,
+                                     @RequestParam(defaultValue = "0") int from,
+                                     @RequestParam(defaultValue = "10") int size) {
+        log.debug("Получен запрос на поиск вещей с текстом: {}, с параметрами from={}, size={}", text, from, size);
+        return itemServiceImpl.searchItems(text, from, size);
     }
 
     @PostMapping("/{itemId}/comment")

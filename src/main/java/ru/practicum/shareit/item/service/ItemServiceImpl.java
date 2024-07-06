@@ -2,10 +2,15 @@ package ru.practicum.shareit.item.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.BookingStatus;
 import ru.practicum.shareit.booking.repository.BookingRepository;
+import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
@@ -16,8 +21,8 @@ import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.repository.CommentRepository;
 import ru.practicum.shareit.item.repository.ItemRepository;
-import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.user.model.User;
+import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.request.model.ItemRequest;
 import ru.practicum.shareit.request.repository.ItemRequestRepository;
 
@@ -39,10 +44,26 @@ public class ItemServiceImpl implements ItemService {
     private final BookingRepository bookingRepository;
 
     @Override
+    @Transactional
     public ItemDto addItem(Long userId, @Valid ItemDto itemDto) {
         log.debug("Добавление вещи пользователем с id={}, данными: {}", userId, itemDto);
+        if (userId == null) {
+            throw new ValidationException("Идентификатор пользователя отсутствует");
+        }
+        if (itemDto == null) {
+            throw new ValidationException("ItemDto cannot be null");
+        }
+        if (itemDto.getName() == null || itemDto.getName().isEmpty()) {
+            throw new ValidationException("Название вещи отсутствует");
+        }
+        if (itemDto.getDescription() == null || itemDto.getDescription().isEmpty()) {
+            throw new ValidationException("Описание вещи отсутствует");
+        }
+        if (itemDto.getAvailable() == null) {
+            throw new ValidationException("Статус доступности вещи отсутствует");
+        }
         User owner = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
-        ItemRequest request = itemDto.getRequest() != null ? itemRequestRepository.findById(itemDto.getRequest()).orElse(null) : null;
+        ItemRequest request = itemDto.getRequestId() != null ? itemRequestRepository.findById(itemDto.getRequestId()).orElse(null) : null;
         Item item = ItemMapper.toModel(itemDto, owner, request);
         Item savedItem = itemRepository.save(item);
         log.debug("Вещь успешно добавлена: {}", savedItem);
@@ -50,11 +71,18 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional
     public ItemDto updateItem(Long itemId, Long userId, @Valid ItemUpdateDto itemUpdateDto) {
         log.debug("Обновление вещи с id={} пользователем с id={}, данными: {}", itemId, userId, itemUpdateDto);
+        if (userId == null) {
+            throw new ValidationException("Идентификатор пользователя отсутствует");
+        }
+        if (itemId == null) {
+            throw new ValidationException("Идентификатор вещи отсутствует");
+        }
         Item existingItem = itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException("Вещь не найдена"));
         if (!existingItem.getOwner().getId().equals(userId)) {
-            throw new NotFoundException("Пользователь не является владельцем вещи");
+            throw new ForbiddenException("Пользователь не является владельцем вещи");
         }
         if (itemUpdateDto.getName() != null) {
             existingItem.setName(itemUpdateDto.getName());
@@ -71,6 +99,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ItemDto getItem(Long itemId, Long userId) {
         log.debug("Получение вещи с id={}", itemId);
         Item item = itemRepository.findById(itemId).orElseThrow(() -> new NotFoundException("Вещь не найдена"));
@@ -86,26 +115,40 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public List<ItemDto> getItems(Long userId) {
+    @Transactional(readOnly = true)
+    public List<ItemDto> getItems(Long userId, int from, int size) {
         log.debug("Получение всех вещей пользователя с id={}", userId);
-        return itemRepository.findByOwnerId(userId).stream()
+        Pageable pageable = PageRequest.of(from / size, size, Sort.by("id").ascending());
+        List<Item> items = itemRepository.findByOwnerId(userId, pageable).getContent();
+        List<Long> itemIds = items.stream().map(Item::getId).collect(Collectors.toList());
+        List<Comment> comments = commentRepository.findByItemIdIn(itemIds);
+        List<Booking> lastBookings = bookingRepository.findLastBookingsByItemIds(itemIds, LocalDateTime.now(), BookingStatus.APPROVED);
+        List<Booking> nextBookings = bookingRepository.findNextBookingsByItemIds(itemIds, LocalDateTime.now(), BookingStatus.APPROVED);
+        return items.stream()
                 .map(item -> {
-                    List<Comment> comments = commentRepository.findByItemId(item.getId());
-                    LocalDateTime now = LocalDateTime.now();
-                    Booking lastBooking = bookingRepository.findFirstByItemIdAndStartLessThanEqualAndStatusOrderByEndDesc(item.getId(), now, BookingStatus.APPROVED);
-                    Booking nextBooking = bookingRepository.findFirstByItemIdAndStartGreaterThanEqualAndStatusOrderByStartAsc(item.getId(), now, BookingStatus.APPROVED);
-                    return ItemMapper.toItemDto(item, comments, lastBooking, nextBooking);
+                    List<Comment> itemComments = comments.stream()
+                            .filter(comment -> comment.getItem().getId().equals(item.getId()))
+                            .collect(Collectors.toList());
+                    Booking lastBooking = lastBookings.stream()
+                            .filter(booking -> booking.getItem().getId().equals(item.getId()))
+                            .findFirst().orElse(null);
+                    Booking nextBooking = nextBookings.stream()
+                            .filter(booking -> booking.getItem().getId().equals(item.getId()))
+                            .findFirst().orElse(null);
+                    return ItemMapper.toItemDto(item, itemComments, lastBooking, nextBooking);
                 })
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<ItemDto> searchItems(String text) {
+    @Transactional(readOnly = true)
+    public List<ItemDto> searchItems(String text, int from, int size) {
         log.debug("Поиск вещей с текстом: {}", text);
         if (text == null || text.trim().isEmpty()) {
             return List.of();
         }
-        return itemRepository.search(text).stream()
+        Pageable pageable = PageRequest.of(from / size, size, Sort.by("id").ascending());
+        return itemRepository.search(text, pageable).stream()
                 .map(ItemMapper::toItemDto)
                 .collect(Collectors.toList());
     }
